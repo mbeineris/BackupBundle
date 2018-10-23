@@ -66,7 +66,10 @@ mabe_backup:
         - { model: Posts }
         # Profile entity will backup only image group
         - { model: Profile, groups: ['image'] }
+        
+    # Local directory anywhere on your system
     local: /projects/project_name/backup/
+    
     gaufrette:
         # Filesystem has to be configured based on gaufrette documentation
         - backup_fs
