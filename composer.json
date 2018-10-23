@@ -4,6 +4,12 @@
     "keywords": ["api", "rest", "backup", "json", "symfony bundle"],
     "type": "symfony-bundle",
     "license": "MIT",
+    "repositories": [
+        {
+            "type": "git",
+            "url": "https://github.com/mbeineris/BackupBundle.git"
+        }
+    ],
     "authors": [
         {
             "name": "Marius Beineris",
@@ -12,7 +18,9 @@
     ],
     "require": {
         "php": "^7.1",
-        "symfony/framework-bundle": "^3.0|^4.0"
+        "symfony/framework-bundle": "^3.0|^4.0",
+        "jms/serializer": "^1.13",
+        "symfony/console": "^4.1"
     },
     "require-dev": {
         "symfony/phpunit-bridge": "^4.1"

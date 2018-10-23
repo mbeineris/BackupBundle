@@ -25,14 +25,23 @@ class Configuration implements ConfigurationInterface
                 ->arrayNode('entities')
                     ->arrayPrototype()
                         ->children()
-                            ->scalarNode('model')->defaultNull()->end()
+                            ->scalarNode('model')->isRequired()->defaultNull()->end()
                             ->arrayNode('groups')->defaultValue(array('Default'))
                                 ->prototype('scalar')->end()
                             ->end()
                         ->end()
                     ->end()
                 ->end()
-                ->scalarNode('local')->defaultNull()->end()
+                ->scalarNode('local')->beforeNormalization()
+                    ->ifString()
+                        ->then(function ($dir) {
+                            if (substr($dir, -1) === '/') {
+                                return $dir;
+                            } else {
+                                return $dir.'/';
+                            }
+                        })->end()
+                    ->end()
                 ->arrayNode('gaufrette')
                     ->prototype('scalar')->end()
                 ->end()
