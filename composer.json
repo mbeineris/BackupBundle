@@ -1,0 +1,25 @@
+{
+    "name": "mabe/backup-bundle",
+    "description": "This symfony bundle makes json backups from specified entities.",
+    "keywords": ["api", "rest", "backup", "json", "symfony bundle"],
+    "type": "symfony-bundle",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Marius Beineris",
+            "email": "mariusbeineris@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^7.1",
+        "symfony/framework-bundle": "^3.0|^4.0"
+    },
+    "require-dev": {
+        "symfony/phpunit-bridge": "^4.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "Mabe\\BackupBundle\\": ""
+        }
+    }
+}
