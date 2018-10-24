@@ -19,68 +19,87 @@ class BackupCommand extends ContainerAwareCommand
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
+        // Get needed services
         $container = $this->getContainer();
-        $em = $this->getContainer()->get('doctrine')->getManager();
-        $serializer = $this->getContainer()->get('jms_serializer');
+        $em = $container->get('doctrine')->getManager();
+        $serializer = $container->get('jms_serializer');
 
+        // Set helper options and instantiate variables
+        $em->getConnection()->getConfiguration()->setSQLLogger(null);
         $registeredEntities = $em->getConfiguration()->getMetadataDriverImpl()->getAllClassNames();
         $now = new \DateTime("now");
         $currentDate = $now->format('YmdHis');
+        $backupSuccess = array();
 
-        $configuredEntities = $container->getParameter('mabe_backup.entities');
-        ProgressBar::setFormatDefinition('minimal', 'Backup progress: %percent%%');
+        // Get configuration
+        $configuredJobs = $container->getParameter('mabe_backup.jobs');
+
+
+        // Initiate progress bar
+        ProgressBar::setFormatDefinition('memory', 'Using %memory% of memory.');
         $progressBar = new ProgressBar($output);
-        $progressBar->setFormat('minimal');
+        $progressBar->setFormat('memory');
         $progressBar->start();
 
-        $backupSuccess = array();
-        foreach ($configuredEntities as $configuredEntity) {
-            $entityName = $configuredEntity['model'];
-            if (in_array('AppBundle\Entity\\'.$configuredEntity['model'], $registeredEntities)) {
 
-                $backupName = $entityName."_".$currentDate.".json.gz";
-                $objects = $em->getRepository('AppBundle:'.$entityName)->findAll();
-                $backupJson = $serializer->serialize($objects, 'json', SerializationContext::create()->setGroups($configuredEntity['groups']));
-                $backupJson = gzencode($backupJson);
+        foreach ($configuredJobs as $configuredJob) {
 
-                // Handle local case
-                $configuredLocal = $container->getParameter('mabe_backup.local');
-                if (!empty($configuredLocal)) {
-                    file_put_contents($configuredLocal . $backupName, $backupJson);
-                    $progressBar->advance();
-                }
+            foreach ($configuredJob['entities'] as $entity => $entityOptions) {
 
-                // Handle gaufrette case
-                $configuredFilesystems = $container->getParameter('mabe_backup.gaufrette_filesystems');
-                if (!empty($configuredFilesystems)) {
-                    foreach ($configuredFilesystems as $filesystemName) {
-                        try {
-                            $filesystem = $container->get('knp_gaufrette.filesystem_map')->get($filesystemName);
-                        } catch (\Exception $e) {
-                            $progressBar->clear();
-                            $output->writeln($filesystemName. " filesystem for entity ".$entityName." not found.");
-                            $progressBar->display();
-                            break;
-                        }
+                $entityName = substr($entity, strrpos($entity, "\\") + 1);
+                $bundleName = strtok($entity, "\\");
 
-                        if (!$filesystem->has($backupName)) {
-                            $filesystem->write($entityName . "_" . $backupName, $backupJson);
-                            $progressBar->advance();
-                        } else {
-                            $progressBar->clear();
-                            $output->writeln($backupName. " already exists.");
-                            $progressBar->display();
-                        }
+                if (in_array($entity, $registeredEntities)) {
 
+                    $backupName = $entityName."_".$currentDate.".json.gz";
+
+                    $q = $em->createQuery('select u from '.$bundleName.':'.$entityName.' u');
+                    $iterableResult = $q->iterate();
+                    $backupJson = '';
+                    foreach ($iterableResult as $row) {
+                        $json = $serializer->serialize($row[0], 'json', SerializationContext::create()->setGroups($entityOptions['groups']));
+                        $backupJson .= $json;
+                        $progressBar->advance();
+                        $em->detach($row[0]);
                     }
+                    $backupJson = gzencode($backupJson);
+
+                    // Handle local case
+                    if (!empty($configuredJob['local'])) {
+                        file_put_contents($configuredJob['local'] . $backupName, $backupJson);
+                    }
+
+                    // Handle gaufrette case
+                    if (!empty($configuredFilesystems = $configuredJob['gaufrette'])) {
+                        foreach ($configuredFilesystems as $filesystemName) {
+                            try {
+                                $filesystem = $container->get('knp_gaufrette.filesystem_map')->get($filesystemName);
+                            } catch (\Exception $e) {
+                                $progressBar->clear();
+                                $output->writeln($filesystemName. " filesystem for entity ".$entityName." not found.");
+                                $progressBar->display();
+                                break;
+                            }
+
+                            if (!$filesystem->has($backupName)) {
+                                $filesystem->write($entityName . "_" . $backupName, $backupJson);
+                            } else {
+                                $progressBar->clear();
+                                $output->writeln($backupName. " already exists.");
+                                $progressBar->display();
+                            }
+                        }
+                    }
+
+                    array_push($backupSuccess, $entityName);
+
+                } else {
+                    $progressBar->clear();
+                    $output->writeln($entityName. " entity not found.");
+                    $progressBar->display();
                 }
+                gc_collect_cycles();
 
-                array_push($backupSuccess, $entityName);
-
-            } else {
-                $progressBar->clear();
-                $output->writeln($entityName. " entity not found.");
-                $progressBar->display();
             }
 
         }

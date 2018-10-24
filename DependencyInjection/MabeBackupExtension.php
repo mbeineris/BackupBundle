@@ -25,8 +25,6 @@ class MabeBackupExtension extends Extension
         $loader = new Loader\YamlFileLoader($container, new FileLocator(__DIR__.'/../Resources/config'));
         $loader->load('services.yml');
 
-        $container->setParameter('mabe_backup.entities', $config['entities']);
-        $container->setParameter('mabe_backup.local', $config['local']);
-        $container->setParameter('mabe_backup.gaufrette_filesystems', $config['gaufrette']);
+        $container->setParameter('mabe_backup.entities', $config['jobs']);
     }
 }

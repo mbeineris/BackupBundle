@@ -32,27 +32,19 @@ class ConfigurationTest extends WebTestCase
         return $this->processor->processConfiguration($configuration, array($configArray));
     }
 
-    public function testEntitiesConfiguration()
-    {
-        $entities = array(array('model' => 'User', 'groups' => array('test_group1', 'test_group1')));
-        $configuration = $this->getConfigs(array('entities' => $entities));
-        $this->assertArrayHasKey('entities', $configuration);
-        $this->assertEquals($entities, $configuration['entities']);
-    }
-
     public function testLocalConfiguration()
     {
         $localDir = '/home/username/backups';
-        $configuration = $this->getConfigs(array('local' => $localDir));
-        $this->assertArrayHasKey('local', $configuration);
-        $this->assertEquals($configuration['local'], '/home/username/backups/');
+        $configuration = $this->getConfigs(array('jobs' => array(array('local' => $localDir))));
+        $this->assertArrayHasKey('local', $configuration['jobs'][0]);
+        $this->assertEquals($configuration['jobs'][0]['local'], '/home/username/backups/');
     }
 
     public function testGaufretteConfiguration()
     {
         $filesystems = array('test1_fs', 'test2_fs');
-        $configuration = $this->getConfigs(array('gaufrette' => $filesystems));
-        $this->assertArrayHasKey('gaufrette', $configuration);
-        $this->assertEquals($filesystems, $configuration['gaufrette']);
+        $configuration = $this->getConfigs(array('jobs' => array(array('gaufrette' => $filesystems))));
+        $this->assertArrayHasKey('gaufrette', $configuration['jobs'][0]);
+        $this->assertEquals($filesystems, $configuration['jobs'][0]['gaufrette']);
     }
 }

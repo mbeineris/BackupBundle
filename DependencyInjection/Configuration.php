@@ -22,28 +22,34 @@ class Configuration implements ConfigurationInterface
 
         $rootNode
             ->children()
-                ->arrayNode('entities')
+                ->arrayNode('jobs')
                     ->arrayPrototype()
                         ->children()
-                            ->scalarNode('model')->isRequired()->defaultNull()->end()
-                            ->arrayNode('groups')->defaultValue(array('Default'))
+                            ->arrayNode('entities')
+                                ->useAttributeAsKey('entity')
+                                ->arrayPrototype()
+                                    ->children()
+                                        ->arrayNode('groups')->defaultValue(array('Default'))
+                                            ->prototype('scalar')->end()
+                                        ->end()
+                                    ->end()
+                                ->end()
+                            ->end()
+                            ->scalarNode('local')->beforeNormalization()
+                                ->ifString()
+                                    ->then(function ($dir) {
+                                        if (substr($dir, -1) === '/') {
+                                            return $dir;
+                                        } else {
+                                            return $dir.'/';
+                                        }
+                                })->end()
+                            ->end()
+                            ->arrayNode('gaufrette')
                                 ->prototype('scalar')->end()
                             ->end()
                         ->end()
                     ->end()
-                ->end()
-                ->scalarNode('local')->beforeNormalization()
-                    ->ifString()
-                        ->then(function ($dir) {
-                            if (substr($dir, -1) === '/') {
-                                return $dir;
-                            } else {
-                                return $dir.'/';
-                            }
-                        })->end()
-                    ->end()
-                ->arrayNode('gaufrette')
-                    ->prototype('scalar')->end()
                 ->end()
             ->end()
         ;
