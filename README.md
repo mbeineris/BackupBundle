@@ -61,6 +61,7 @@ fos_rest:
 mabe_backup:
     entities:
         # User entity will backup all default and backup groups
+        # NOTE: Group names are case sensitive
         - { model: User, groups: ['Default', 'backup'] }
         # Posts entity will backup default group 
         - { model: Posts }
@@ -76,5 +77,4 @@ mabe_backup:
 ```
 Running tests
 ============
-
 ./vendor/bin/simple-phpunit
