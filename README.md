@@ -60,11 +60,12 @@ fos_rest:
         
 mabe_backup:
     jobs:
-        # Job name can be anything except reserved names
+        # Job name can be anything except reserved names.
+        # Job must have atleast one entity and backup location configured.
         job1:
             entities:
                 # Test1 entity will backup all 'Default' and 'backup' groups
-                # NOTE: Group names are case sensitive
+                # NOTE: Groups are optional and their names are case sensitive
                 AppBundle\Entity\Test1:
                     groups: ["Default", "backup"]
                 # Test2 entity will backup 'Default' group only
