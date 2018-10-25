@@ -34,13 +34,11 @@ class BackupCommand extends ContainerAwareCommand
         // Get configuration
         $configuredJobs = $container->getParameter('mabe_backup.jobs');
 
-
         // Initiate progress bar
         ProgressBar::setFormatDefinition('memory', 'Using %memory% of memory.');
         $progressBar = new ProgressBar($output);
         $progressBar->setFormat('memory');
         $progressBar->start();
-
 
         foreach ($configuredJobs as $configuredJob) {
 
