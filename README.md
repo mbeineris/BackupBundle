@@ -63,16 +63,17 @@ mabe_backup:
         # Job name can be anything except reserved names
         job1:
             entities:
-                # Test1 entity will backup all default and backup groups
+                # Test1 entity will backup all 'Default' and 'backup' groups
                 # NOTE: Group names are case sensitive
                 AppBundle\Entity\Test1: groups: ["Default", "backup"]
-                # Test2 entity will backup default group only
+                # Test2 entity will backup 'Default' group only
                 AppBundle\Entity\Test2: ~
             # Backup files will be saved in local directory    
-            local: /projects/backups/Projects/Backup/
+            local: /projects/backups/
         job2:
             entities:
-                AppBundle\Entity\Test3: ~
+                # Test 3 entity will backup 'base64' group only
+                AppBundle\Entity\Test3: groups["base64"]
             # Filesystem has to be configured based on gaufrette documentation    
             gaufrette:
                 - backup_fs
