@@ -1,4 +1,4 @@
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Build Status](https://travis-ci.org/mbeineris/BackupBundle.svg?branch=master)](https://travis-ci.org/mbeineris/BackupBundle) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 # BackupBundle
 
 This symfony bundle makes json backups from specified entities.
@@ -57,23 +57,25 @@ class AppKernel extends Kernel
 fos_rest:
     serializer:
         groups: [Default]
-
-mabe_backup:
-    entities:
-        # User entity will backup all default and backup groups
-        # NOTE: Group names are case sensitive
-        - { model: User, groups: ['Default', 'backup'] }
-        # Posts entity will backup default group 
-        - { model: Posts }
-        # Profile entity will backup only image group
-        - { model: Profile, groups: ['image'] }
         
-    # Local directory anywhere on your system
-    local: /projects/project_name/backup/
-    
-    gaufrette:
-        # Filesystem has to be configured based on gaufrette documentation
-        - backup_fs
+mabe_backup:
+    jobs:
+        # Job name can be anything except reserved names
+        job1:
+            entities:
+                # Test1 entity will backup all default and backup groups
+                # NOTE: Group names are case sensitive
+                AppBundle\Entity\Test1: groups: ["Default", "backup"]
+                # Test2 entity will backup default group only
+                AppBundle\Entity\Test2: ~
+            # Backup files will be saved in local directory    
+            local: /projects/backups/Projects/Backup/
+        job2:
+            entities:
+                AppBundle\Entity\Test3: ~
+            # Filesystem has to be configured based on gaufrette documentation    
+            gaufrette:
+                - backup_fs
 ```
 Running tests
 ============
