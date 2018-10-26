@@ -5,7 +5,10 @@ namespace Mabe\BackupBundle\Command;
 use JMS\Serializer\SerializationContext;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Helper\ProgressBar;
+use Symfony\Component\Console\Helper\Table;
+use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 class BackupCommand extends ContainerAwareCommand
@@ -14,15 +17,49 @@ class BackupCommand extends ContainerAwareCommand
     {
         $this
             ->setName('mabe:backup')
-            ->setDescription('Makes a backup of configured entities in JSON format.');
+            ->setDescription('Makes a backup of configured entities in JSON format.')
+            ->setHelp("") // "--help" option
+            ->addArgument(
+                'jobs',
+                InputArgument::IS_ARRAY,
+                'Runs specified(by name) jobs. If omitted, runs all.'
+            )
+            ->addOption(
+                'list',
+                null,
+                InputOption::VALUE_OPTIONAL,
+                'Lists all configured jobs.',
+                false
+            )
+        ;
     }
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
+        // Get passed arguments and options
+        $jobs = $input->getArgument('jobs');
+        $option = $input->getOption('list');
+        $list = ($option !== false);
+
         // Get needed services
         $container = $this->getContainer();
         $em = $container->get('doctrine')->getManager();
         $serializer = $container->get('jms_serializer');
+
+        $output->writeln('Symfony BackupBundle by Marius Beineris and contributors.');
+        $output->writeln('');
+
+        // Get configuration
+        $configuredJobs = $container->getParameter('mabe_backup.jobs');
+
+        // List configured jobs
+        if (!empty($list)) {
+            $this->listJobs($output, $configuredJobs);
+            // If no arguments passed, stop command
+            if (empty($jobs)) {
+                return;
+            }
+        }
 
         // Set helper options and instantiate variables
         $em->getConnection()->getConfiguration()->setSQLLogger(null);
@@ -31,8 +68,20 @@ class BackupCommand extends ContainerAwareCommand
         $currentDate = $now->format('YmdHis');
         $backupSuccess = array();
 
-        // Get configuration
-        $configuredJobs = $container->getParameter('mabe_backup.jobs');
+        // If arguments given, check if they are valid
+        if (!empty($jobs)) {
+            $unknownJobs = array_diff($jobs, array_keys($configuredJobs));
+            if (!empty($unknownJobs)) {
+                $output->write('Unknown Job(s): ');
+                $output->writeln(implode(', ', $unknownJobs));
+                $output->writeln('');
+                // Check if list was not displayed
+                if(empty($list)) {
+                    $this->listJobs($output, $configuredJobs);
+                }
+                return;
+            }
+        }
 
         // Initiate progress bar
         ProgressBar::setFormatDefinition('memory', 'Using %memory% of memory.');
@@ -40,7 +89,12 @@ class BackupCommand extends ContainerAwareCommand
         $progressBar->setFormat('memory');
         $progressBar->start();
 
-        foreach ($configuredJobs as $configuredJob) {
+        foreach ($configuredJobs as $jobName => $configuredJob) {
+
+            // Skip jobs that were not in given arguments
+            if(!empty($jobs && !in_array($jobName, $jobs))) {
+                continue;
+            }
 
             foreach ($configuredJob['entities'] as $entity => $entityOptions) {
 
@@ -51,7 +105,7 @@ class BackupCommand extends ContainerAwareCommand
 
                     $backupName = $entityName."_".$currentDate.".json.gz";
 
-                    $q = $em->createQuery('select u from '.$bundleName.':'.$entityName.' u');
+                    $q = $em->createQuery('select e from '.$bundleName.':'.$entityName.' e');
                     $iterableResult = $q->iterate();
                     $backupJson = '';
                     foreach ($iterableResult as $row) {
@@ -111,5 +165,23 @@ class BackupCommand extends ContainerAwareCommand
             $output->writeln('All backups has failed.');
             $output->writeln('');
         }
+    }
+
+    public function listJobs(OutputInterface $output, $configuredJobs)
+    {
+        $table = new Table($output);
+        $output->writeln('Backup Jobs:');
+        $table
+            ->setHeaders(array('#', 'Job Name', 'Entities', 'Local Dir', 'Filesystem'));
+        $i = 0;
+        foreach ($configuredJobs as $jobName => $job) {
+            // array("AppBundle\Entity\Test1", "AppBundle\Entity\Test2") -> array("Test1", "Test2")
+            $entities = array_map(function ($x){ return substr($x, strrpos($x, "\\") + 1); }, array_keys($job['entities']));
+            $table->addRow(array($i, $jobName, implode(', ', $entities), $job['local'], implode(', ', $job['gaufrette'])));
+            $i++;
+        }
+        $table->setStyle('borderless');
+        $table->render();
+        $output->writeln('');
     }
 }
