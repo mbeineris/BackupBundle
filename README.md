@@ -80,6 +80,39 @@ mabe_backup:
             gaufrette:
                 - backup_fs
 ```
+
+### Step 4: Symfony 4 only
+Symfony 4 no longer registers bundle Commands from the Command folder as per https://github.com/symfony/symfony/blob/master/UPGRADE-4.0.md#httpkernel .
+Register the command like this:
+```yml
+// config/services.yml
+services:
+
+    # Explicit command registration
+    App\Command\BackupCommand:
+        class: 'Mabe\BackupBundle\Command\BackupCommand'
+        tags: ['console.command']
+```
+
+Usage
+============
+Run all configured backups:
+```console
+$ php bin/console mabe:backup
+```
+List jobs:
+```console
+$ php bin/console mabe:backup --list
+```
+You can also specify just the jobs you want to run like this:
+```console
+$ php bin/console mabe:backup job1 job2 job3
+```
+Help:
+```console
+$ php bin/console mabe:backup --help
+```
+
 Running tests
 ============
 ./vendor/bin/simple-phpunit
