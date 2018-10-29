@@ -5,8 +5,7 @@ This symfony bundle makes json backups from specified entities.
 
 Requirements
 ============
-- Gaufrette bundle: https://github.com/KnpLabs/KnpGaufretteBundle
-- JMSSerializer bundle: https://github.com/schmittjoh/JMSSerializerBundle
+- Gaufrette bundle (only if you plan to use gaufrette): https://github.com/KnpLabs/KnpGaufretteBundle
 
 Installation
 ============
@@ -61,7 +60,7 @@ fos_rest:
 mabe_backup:
     jobs:
         # Job name can be anything except reserved names.
-        # Job must have atleast one entity and backup location configured.
+        # Job must have at least one entity and backup location configured.
         job1:
             entities:
                 # Test1 entity will backup all 'Default' and 'backup' groups
