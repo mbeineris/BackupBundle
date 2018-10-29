@@ -5,7 +5,7 @@ This symfony bundle makes json backups from specified entities.
 
 Requirements
 ============
-- Gaufrette bundle (only if you plan to use gaufrette): https://github.com/KnpLabs/KnpGaufretteBundle
+- (Optional)Gaufrette bundle: https://github.com/KnpLabs/KnpGaufretteBundle
 
 Installation
 ============
