@@ -19,9 +19,9 @@
     "require": {
         "php": "^7.1",
         "symfony/framework-bundle": "^3.0|^4.0",
-        "jms/serializer": "^1.13",
         "symfony/console": "^3.0|^4.1",
-        "knplabs/knp-gaufrette-bundle": "^0.3"
+        "knplabs/knp-gaufrette-bundle": "^0.3",
+        "jms/serializer": "^1.13"
     },
     "require-dev": {
         "symfony/phpunit-bridge": "^4.1"
