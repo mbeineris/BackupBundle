@@ -3,6 +3,7 @@
 namespace Mabe\BackupBundle\Command;
 
 use JMS\Serializer\SerializationContext;
+use JMS\Serializer\SerializerBuilder;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Helper\Table;
@@ -44,7 +45,7 @@ class BackupCommand extends ContainerAwareCommand
         // Get needed services
         $container = $this->getContainer();
         $em = $container->get('doctrine')->getManager();
-        $serializer = $container->get('jms_serializer');
+        $serializer = SerializerBuilder::create()->build();
 
         $output->writeln('Symfony BackupBundle by Marius Beineris and contributors.');
         $output->writeln('');
