@@ -22,6 +22,7 @@
         "symfony/console": "^3.0|^4.1",
         "knplabs/knp-gaufrette-bundle": "^0.3",
         "jms/serializer": "^1.13"
+
     },
     "require-dev": {
         "symfony/phpunit-bridge": "^4.1"

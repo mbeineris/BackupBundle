@@ -2,7 +2,9 @@
 
 namespace Mabe\BackupBundle\Command;
 
-use JMS\Serializer\SerializationContext;
+use Doctrine\Common\Annotations\AnnotationReader;
+use JMS\Serializer\SerializerBuilder;
+use Mabe\BackupBundle\Annotations\BackupGroups;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Helper\Table;
@@ -44,7 +46,8 @@ class BackupCommand extends ContainerAwareCommand
         // Get needed services
         $container = $this->getContainer();
         $em = $container->get('doctrine')->getManager();
-        $serializer = $container->get('jms_serializer');
+        $reader = new AnnotationReader();
+        $serializer = SerializerBuilder::create()->build();
 
         $output->writeln('Symfony BackupBundle by Marius Beineris and contributors.');
         $output->writeln('');
@@ -109,10 +112,33 @@ class BackupCommand extends ContainerAwareCommand
                     $iterableResult = $q->iterate();
                     $backupJson = '';
                     foreach ($iterableResult as $row) {
-                        $json = $serializer->serialize($row[0], 'json', SerializationContext::create()->setGroups($entityOptions['groups']));
+
+                        //Handle annotations
+                        if (!empty($entityOptions['groups'])) {
+                            $annotation = new \stdClass();
+                            foreach ($em->getClassMetadata($entity)->getReflectionClass()->getProperties() as $reflectionProperty) {
+                                $backupGroups = $reader->getPropertyAnnotation(
+                                    $reflectionProperty,
+                                    BackupGroups::class
+                                );
+                                if (!empty($backupGroups)) {
+                                    $backupGroups = $backupGroups->groups;
+                                    // If annotation group is in configuration
+                                    if(!empty(array_intersect($entityOptions['groups'], $backupGroups))) {
+                                        $property = $reflectionProperty->name;
+                                        $annotation->$property = $row[0]->{'get'.$property}();
+                                    }
+                                }
+                            }
+                            $json = $serializer->serialize($annotation, 'json');
+                        } else {
+                            $json = $serializer->serialize($row[0], 'json');
+                        }
+
+                        $em->detach($row[0]);
                         $backupJson .= $json;
                         $progressBar->advance();
-                        $em->detach($row[0]);
+
                     }
                     $backupJson = gzencode($backupJson);
 
