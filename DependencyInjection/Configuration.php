@@ -42,7 +42,7 @@ class Configuration implements ConfigurationInterface
                                 ->useAttributeAsKey('entity')
                                 ->arrayPrototype()
                                     ->children()
-                                        ->arrayNode('groups')->defaultValue(array('Default'))
+                                        ->arrayNode('groups')
                                             ->prototype('scalar')->end()
                                         ->end()
                                     ->end()

@@ -21,6 +21,7 @@
         "symfony/framework-bundle": "^3.0|^4.0",
         "symfony/console": "^3.0|^4.1",
         "jms/serializer": "^1.13"
+
     },
     "require-dev": {
         "symfony/phpunit-bridge": "^4.1",
