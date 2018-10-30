@@ -50,35 +50,45 @@ class AppKernel extends Kernel
 ```
 
 ### Step 3: Configure
-
 ```yml
-# Configure serializer to use Default group
-fos_rest:
-    serializer:
-        groups: [Default]
-        
 mabe_backup:
     jobs:
         # Job name can be anything except reserved names.
         # Job must have at least one entity and backup location configured.
         job1:
             entities:
-                # Test1 entity will backup all 'Default' and 'backup' groups
+                # Test1 entity will backup all entity properties
+                AppBundle\Entity\Test1: ~
+                # Test2 entity will backup only properties that have "backup" in @BackupGroups
                 # NOTE: Groups are optional and their names are case sensitive
-                AppBundle\Entity\Test1:
-                    groups: ["Default", "backup"]
-                # Test2 entity will backup 'Default' group only
-                AppBundle\Entity\Test2: ~
+                AppBundle\Entity\Test2:
+                    groups: ["backup"]
             # Backup files will be saved in local directory    
             local: /projects/backups/
         job2:
             entities:
-                # Test 3 entity will backup 'base64' group only
                 AppBundle\Entity\Test3:
                     groups: ["base64"]
             # Filesystem has to be configured based on gaufrette documentation    
             gaufrette:
                 - backup_fs
+```
+If you are using groups:
+```php
+// ../src/Entity/Test1.php
+
+use Mabe\BackupBundle\Annotations\BackupGroups;
+
+class Test1
+{
+    /**
+     * @ORM\Column(type="string", length=255)
+     * @BackupGroups({"backup"})
+     */
+    private $firstName;
+    
+    ...
+}
 ```
 
 ### Step 4: Symfony 4 only
