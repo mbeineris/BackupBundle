@@ -73,12 +73,30 @@ mabe_backup:
             gaufrette:
                 - backup_fs
 ```
+If you want to backup whole entity:
+```php
+// ../src/Entity/Test1.php
+
+use Mabe\BackupBundle\Annotations\BackupPolicy
+
+/**
+ * @BackupPolicy("all")
+ */
+class Test1
+{
+    ...
+}
+```
 If you are using groups:
 ```php
 // ../src/Entity/Test1.php
 
+use Mabe\BackupBundle\Annotations\BackupPolicy;
 use Mabe\BackupBundle\Annotations\BackupGroups;
 
+/**
+ * @BackupPolicy("groups")
+ */
 class Test1
 {
     /**
