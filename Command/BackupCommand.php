@@ -5,6 +5,7 @@ namespace Mabe\BackupBundle\Command;
 use Doctrine\Common\Annotations\AnnotationReader;
 use JMS\Serializer\SerializerBuilder;
 use Mabe\BackupBundle\Annotations\BackupGroups;
+use Mabe\BackupBundle\Annotations\BackupPolicy;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Helper\Table;
@@ -103,6 +104,7 @@ class BackupCommand extends ContainerAwareCommand
 
                 $entityName = substr($entity, strrpos($entity, "\\") + 1);
                 $bundleName = strtok($entity, "\\");
+                $backupPolicy = $reader->getClassAnnotation($em->getClassMetadata($entity)->getReflectionClass(), BackupPolicy::class);
 
                 if (in_array($entity, $registeredEntities)) {
 
@@ -113,24 +115,29 @@ class BackupCommand extends ContainerAwareCommand
                     $backupJson = '';
                     foreach ($iterableResult as $row) {
 
-                        //Handle annotations
-                        if (!empty($entityOptions['groups'])) {
-                            $annotation = new \stdClass();
+                        // Handle annotations
+                        $obj = new \stdClass();
+                        if ($backupPolicy) {
                             foreach ($em->getClassMetadata($entity)->getReflectionClass()->getProperties() as $reflectionProperty) {
-                                $backupGroups = $reader->getPropertyAnnotation(
-                                    $reflectionProperty,
-                                    BackupGroups::class
-                                );
-                                if (!empty($backupGroups)) {
-                                    $backupGroups = $backupGroups->groups;
-                                    // If annotation group is in configuration
-                                    if(!empty(array_intersect($entityOptions['groups'], $backupGroups))) {
-                                        $property = $reflectionProperty->name;
-                                        $annotation->$property = $row[0]->{'get'.$property}();
+                                if ($backupPolicy->policy === BackupPolicy::ALL) {
+                                    $property = $reflectionProperty->name;
+                                    $obj->$property = $row[0]->{'get'.$property}();
+                                } else if ($backupPolicy->policy == BackupPolicy::GROUPS && !empty($entityOptions['groups'])) {
+                                    $backupGroups = $reader->getPropertyAnnotation(
+                                        $reflectionProperty,
+                                        BackupGroups::class
+                                    );
+                                    if (!empty($backupGroups)) {
+                                        $backupGroups = $backupGroups->groups;
+                                        // If annotation group is in configuration
+                                        if (!empty(array_intersect($entityOptions['groups'], $backupGroups))) {
+                                            $property = $reflectionProperty->name;
+                                            $obj->$property = $row[0]->{'get' . $property}();
+                                        }
                                     }
                                 }
                             }
-                            $json = $serializer->serialize($annotation, 'json');
+                            $json = $serializer->serialize($obj, 'json');
                         } else {
                             $json = $serializer->serialize($row[0], 'json');
                         }
