@@ -108,7 +108,7 @@ class BackupCommand extends ContainerAwareCommand
 
                 if (in_array($entity, $registeredEntities)) {
 
-                    $backupName = $entityName."_".$currentDate.".json.gz";
+                    $backupName = $jobName."_".$entityName."_".$currentDate.".json.gz";
 
                     $q = $em->createQuery('select e from '.$bundleName.':'.$entityName.' e');
                     $iterableResult = $q->iterate();
@@ -120,20 +120,35 @@ class BackupCommand extends ContainerAwareCommand
                         if ($backupPolicy) {
                             foreach ($em->getClassMetadata($entity)->getReflectionClass()->getProperties() as $reflectionProperty) {
                                 if ($backupPolicy->policy === BackupPolicy::ALL) {
+                                    if (!empty($entityOptions['groups'])) {
+                                        $progressBar->clear();
+                                        $output->writeln($jobName.' has groups configured, but @BackupPolicy is set to "all". Skipping '.$jobName.'.');
+                                        $output->writeln('');
+                                        $progressBar->display();
+                                        continue(3);
+                                    }
                                     $property = $reflectionProperty->name;
                                     $obj->$property = $row[0]->{'get'.$property}();
-                                } else if ($backupPolicy->policy == BackupPolicy::GROUPS && !empty($entityOptions['groups'])) {
-                                    $backupGroups = $reader->getPropertyAnnotation(
-                                        $reflectionProperty,
-                                        BackupGroups::class
-                                    );
-                                    if (!empty($backupGroups)) {
-                                        $backupGroups = $backupGroups->groups;
-                                        // If annotation group is in configuration
-                                        if (!empty(array_intersect($entityOptions['groups'], $backupGroups))) {
-                                            $property = $reflectionProperty->name;
-                                            $obj->$property = $row[0]->{'get' . $property}();
+                                } else if ($backupPolicy->policy == BackupPolicy::GROUPS) {
+                                    if(!empty($entityOptions['groups'])) {
+                                        $backupGroups = $reader->getPropertyAnnotation(
+                                            $reflectionProperty,
+                                            BackupGroups::class
+                                        );
+                                        if (!empty($backupGroups)) {
+                                            $backupGroups = $backupGroups->groups;
+                                            // If annotation group is in configuration
+                                            if (!empty(array_intersect($entityOptions['groups'], $backupGroups))) {
+                                                $property = $reflectionProperty->name;
+                                                $obj->$property = $row[0]->{'get' . $property}();
+                                            }
                                         }
+                                    } else {
+                                        $progressBar->clear();
+                                        $output->writeln($jobName.' has no groups configured, but @BackupPolicy is set to "groups". Skipping '.$jobName.'.');
+                                        $output->writeln('');
+                                        $progressBar->display();
+                                        continue(3);
                                     }
                                 }
                             }
