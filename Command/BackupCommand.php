@@ -105,6 +105,7 @@ class BackupCommand extends ContainerAwareCommand
                 $entityName = substr($entity, strrpos($entity, "\\") + 1);
                 $bundleName = strtok($entity, "\\");
                 $backupPolicy = $reader->getClassAnnotation($em->getClassMetadata($entity)->getReflectionClass(), BackupPolicy::class);
+                $entityAssociations = $em->getClassMetadata($entity)->getAssociationNames();
 
                 if (in_array($entity, $registeredEntities)) {
 
@@ -128,7 +129,13 @@ class BackupCommand extends ContainerAwareCommand
                                         continue(3);
                                     }
                                     $property = $reflectionProperty->name;
-                                    $obj->$property = $row[0]->{'get'.$property}();
+
+                                    // If property is association, backup only id
+                                    if (in_array($property, $entityAssociations)){
+                                        $obj->$property = array('id' => $row[0]->getId());
+                                    } else {
+                                        $obj->$property = $row[0]->{'get'.$property}();
+                                    }
                                 } else if ($backupPolicy->policy == BackupPolicy::GROUPS) {
                                     if(!empty($entityOptions['groups'])) {
                                         $backupGroups = $reader->getPropertyAnnotation(
