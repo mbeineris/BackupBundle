@@ -77,7 +77,7 @@ If you want to backup whole entity:
 ```php
 // ../src/Entity/Test1.php
 
-use Mabe\BackupBundle\Annotations\BackupPolicy
+use Mabe\BackupBundle\Annotations\BackupPolicy;
 
 /**
  * @BackupPolicy("all")
