@@ -59,7 +59,7 @@ mabe_backup:
             entities:
                 # Test1 entity will backup all entity properties
                 AppBundle\Entity\Test1: ~
-                # Test2 entity will backup only properties that have "backup" in @BackupGroups
+                # Test2 entity will use JMS groups
                 # NOTE: Groups are optional and their names are case sensitive
                 AppBundle\Entity\Test2:
                     groups: ["backup"]
@@ -67,46 +67,12 @@ mabe_backup:
             local: /projects/backups/
         job2:
             entities:
+                # Test3 entity will backup only given properties
                 AppBundle\Entity\Test3:
-                    groups: ["base64"]
+                    properties: ["username", "birthDate"]
             # Filesystem has to be configured based on gaufrette documentation    
             gaufrette:
                 - backup_fs
-```
-If you want to backup whole entity:
-```php
-// ../src/Entity/Test1.php
-
-use Mabe\BackupBundle\Annotations\BackupPolicy;
-
-/**
- * @BackupPolicy("all")
- */
-class Test1
-{
-    ...
-}
-```
-If you are using groups:
-```php
-// ../src/Entity/Test1.php
-
-use Mabe\BackupBundle\Annotations\BackupPolicy;
-use Mabe\BackupBundle\Annotations\BackupGroups;
-
-/**
- * @BackupPolicy("groups")
- */
-class Test1
-{
-    /**
-     * @ORM\Column(type="string", length=255)
-     * @BackupGroups({"backup"})
-     */
-    private $firstName;
-    
-    ...
-}
 ```
 
 ### Step 4: Symfony 4 only
@@ -139,6 +105,51 @@ $ php bin/console mabe:backup job1 job2 job3
 Help:
 ```console
 $ php bin/console mabe:backup --help
+```
+Advance Usage
+============
+You can create a listener to modify your entities on pre_backup event or do something on post_backup (ex. send mail).
+```php
+
+// src/AppBundle/Listener/BackupListener.php
+
+namespace AppBundle\Listener;
+
+use Mabe\BackupBundle\Event\BackupEvent;
+use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+
+class BackupListener implements EventSubscriberInterface
+{
+
+    public function preBackup(BackupEvent $event)
+    {
+        $object = $event->getObject();
+        $job = $event->getActiveJob();
+    }
+
+    public function postBackup(BackupEvent $event)
+    {
+        $finishedJobs = $event->getJobs();
+    }
+
+    public static function getSubscribedEvents()
+    {
+        return array(
+            BackupEvent::PRE_BACKUP => 'preBackup',
+            BackupEvent::POST_BACKUP => 'postBackup'
+        );
+    }
+}
+```
+...and register serivce:
+```yml
+# ..app/config/services.yml
+
+services:
+    app.mabe_backup.listener:
+        class: AppBundle\Listener\BackupListener
+        tags:
+            - { name: kernel.event_subscriber }
 ```
 
 Running tests
