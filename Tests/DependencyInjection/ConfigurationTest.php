@@ -86,4 +86,14 @@ class ConfigurationTest extends WebTestCase
         $this->expectException(InvalidConfigurationException::class);
         $this->getConfigs(array('jobs' => $jobs));
     }
+
+    public function testInvalidEntityConfiguration()
+    {
+        $jobs = array('job2' => array('local' => '/home/backups/',
+            'entities' => array(
+                'AppBundle\\Entity\\Test' => array('groups' => array("backup"), 'properties' => array("username"))
+            )));
+        $this->expectException(InvalidConfigurationException::class);
+        $this->getConfigs(array('jobs' => $jobs));
+    }
 }
