@@ -2,10 +2,10 @@
 
 namespace Mabe\BackupBundle\Command;
 
-use Doctrine\Common\Annotations\AnnotationReader;
+
+use JMS\Serializer\SerializationContext;
 use JMS\Serializer\SerializerBuilder;
-use Mabe\BackupBundle\Annotations\BackupGroups;
-use Mabe\BackupBundle\Annotations\BackupPolicy;
+use Mabe\BackupBundle\Event\BackupEvent;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Helper\Table;
@@ -47,8 +47,8 @@ class BackupCommand extends ContainerAwareCommand
         // Get needed services
         $container = $this->getContainer();
         $em = $container->get('doctrine')->getManager();
-        $reader = new AnnotationReader();
         $serializer = SerializerBuilder::create()->build();
+        $dispatcher = $this->getContainer()->get('event_dispatcher');
 
         $output->writeln('Symfony BackupBundle by Marius Beineris and contributors.');
         $output->writeln('');
@@ -71,6 +71,7 @@ class BackupCommand extends ContainerAwareCommand
         $now = new \DateTime("now");
         $currentDate = $now->format('YmdHis');
         $backupSuccess = array();
+        $completedJobs = array();
 
         // If arguments given, check if they are valid
         if (!empty($jobs)) {
@@ -104,7 +105,6 @@ class BackupCommand extends ContainerAwareCommand
 
                 $entityName = substr($entity, strrpos($entity, "\\") + 1);
                 $bundleName = strtok($entity, "\\");
-                $backupPolicy = $reader->getClassAnnotation($em->getClassMetadata($entity)->getReflectionClass(), BackupPolicy::class);
                 $entityAssociations = $em->getClassMetadata($entity)->getAssociationNames();
 
                 if (in_array($entity, $registeredEntities)) {
@@ -116,55 +116,46 @@ class BackupCommand extends ContainerAwareCommand
                     $backupJson = '';
                     foreach ($iterableResult as $row) {
 
-                        // Handle annotations
-                        $obj = new \stdClass();
-                        if ($backupPolicy) {
-                            foreach ($em->getClassMetadata($entity)->getReflectionClass()->getProperties() as $reflectionProperty) {
-                                if ($backupPolicy->policy === BackupPolicy::ALL) {
-                                    if (!empty($entityOptions['groups'])) {
-                                        $progressBar->clear();
-                                        $output->writeln($jobName.' has groups configured, but @BackupPolicy is set to "all". Skipping '.$jobName.'.');
-                                        $output->writeln('');
-                                        $progressBar->display();
-                                        continue(3);
-                                    }
-                                    $property = $reflectionProperty->name;
+                        // Object of the entity
+                        $object = $row[0];
 
+                        // Dispatch preBackupEvent
+                        $event = new BackupEvent();
+                        $event->setObject($object);
+                        $event->setActiveJob($jobName);
+                        $dispatcher->dispatch(BackupEvent::PRE_BACKUP, $event);
+
+                        // If groups specified
+                        if(!empty($entityOptions['groups'])) {
+                            $json = $serializer->serialize($object, 'json', SerializationContext::create()->setGroups($entityOptions['groups']));
+                        } else {
+                            $serializeObject = new \stdClass();
+                            foreach ($em->getClassMetadata($entity)->getReflectionClass()->getProperties() as $reflectionProperty) {
+
+                                $property = $reflectionProperty->name;
+
+                                // If properties specified
+                                if (!empty($configuredProps = $entityOptions['properties'])) {
+                                    if(in_array($property, $configuredProps)){
+                                        if (in_array($property, $entityAssociations) ){
+                                            $serializeObject->$property = array('id' => $object->getId());
+                                        } else {
+                                            $serializeObject->$property = $object->{'get'.$property}();
+                                        }
+                                    }
+                                } else {
                                     // If property is association, backup only id
                                     if (in_array($property, $entityAssociations)){
-                                        $obj->$property = array('id' => $row[0]->getId());
+                                        $serializeObject->$property = array('id' => $object->getId());
                                     } else {
-                                        $obj->$property = $row[0]->{'get'.$property}();
-                                    }
-                                } else if ($backupPolicy->policy == BackupPolicy::GROUPS) {
-                                    if(!empty($entityOptions['groups'])) {
-                                        $backupGroups = $reader->getPropertyAnnotation(
-                                            $reflectionProperty,
-                                            BackupGroups::class
-                                        );
-                                        if (!empty($backupGroups)) {
-                                            $backupGroups = $backupGroups->groups;
-                                            // If annotation group is in configuration
-                                            if (!empty(array_intersect($entityOptions['groups'], $backupGroups))) {
-                                                $property = $reflectionProperty->name;
-                                                $obj->$property = $row[0]->{'get' . $property}();
-                                            }
-                                        }
-                                    } else {
-                                        $progressBar->clear();
-                                        $output->writeln($jobName.' has no groups configured, but @BackupPolicy is set to "groups". Skipping '.$jobName.'.');
-                                        $output->writeln('');
-                                        $progressBar->display();
-                                        continue(3);
+                                        $serializeObject->$property = $object->{'get'.$property}();
                                     }
                                 }
                             }
-                            $json = $serializer->serialize($obj, 'json');
-                        } else {
-                            $json = $serializer->serialize($row[0], 'json');
+                            $json = $serializer->serialize($serializeObject, 'json');
                         }
 
-                        $em->detach($row[0]);
+                        $em->detach($object);
                         $backupJson .= $json;
                         $progressBar->advance();
 
@@ -197,8 +188,13 @@ class BackupCommand extends ContainerAwareCommand
                             }
                         }
                     }
-
                     array_push($backupSuccess, $entityName);
+                    array_push($completedJobs, $jobName);
+
+                    // Dispatch postBackup
+                    $event = new BackupEvent();
+                    $event->setJobs($completedJobs);
+                    $dispatcher->dispatch(BackupEvent::POST_BACKUP, $event);
 
                 } else {
                     $progressBar->clear();
