@@ -41,8 +41,19 @@ class Configuration implements ConfigurationInterface
                             ->arrayNode('entities')
                                 ->useAttributeAsKey('entity')
                                 ->arrayPrototype()
+                                    ->validate()
+                                        ->always()
+                                        ->then(function ($entities){
+                                            if(!empty($entities['properties']) && !empty($entities['groups'])) {
+                                                throw new InvalidConfigurationException('Entity properties and groups cannot be configured at the same time.');
+                                            }
+                                        })
+                                    ->end()
                                     ->children()
                                         ->arrayNode('groups')
+                                            ->prototype('scalar')->end()
+                                        ->end()
+                                        ->arrayNode('properties')
                                             ->prototype('scalar')->end()
                                         ->end()
                                     ->end()
