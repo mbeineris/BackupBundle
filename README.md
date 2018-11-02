@@ -5,7 +5,7 @@ This symfony bundle makes json backups from specified entities.
 
 Requirements
 ============
-- (Optional)Gaufrette bundle: https://github.com/KnpLabs/KnpGaufretteBundle
+- (Optional) Gaufrette bundle: https://github.com/KnpLabs/KnpGaufretteBundle
 
 Installation
 ============
@@ -106,7 +106,7 @@ Help:
 ```console
 $ php bin/console mabe:backup --help
 ```
-Advance Usage
+Advanced Usage
 ============
 You can create a listener to modify your entities on pre_backup event or do something on post_backup (ex. send mail).
 ```php
