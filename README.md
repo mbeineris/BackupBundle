@@ -108,7 +108,7 @@ $ php bin/console mabe:backup --help
 ```
 Advanced Usage
 ============
-You can create a listener to modify your entities on pre_backup event or do something on post_backup (ex. send mail).
+You can create a listener to modify your entities on pre_backup event or do something on backup_finished (ex. send mail).
 ```php
 
 // src/AppBundle/Listener/BackupListener.php
@@ -125,18 +125,31 @@ class BackupListener implements EventSubscriberInterface
     {
         $object = $event->getObject();
         $job = $event->getActiveJob();
+        if($object instanceof User) {
+            if (!$object->isEnabled()) {
+                // You can skip object backup if your conditions are not met
+                $event->setSerialize(false);
+            }
+        }
     }
 
     public function postBackup(BackupEvent $event)
     {
+        // do something
+    }
+
+    public function backupFinished(BackupEvent $event)
+    {
         $finishedJobs = $event->getJobs();
+        // send mail
     }
 
     public static function getSubscribedEvents()
     {
         return array(
             BackupEvent::PRE_BACKUP => 'preBackup',
-            BackupEvent::POST_BACKUP => 'postBackup'
+            BackupEvent::POST_BACKUP => 'postBackup',
+            BackupEvent::BACKUP_FINISHED => 'backupFinished'
         );
     }
 }

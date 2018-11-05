@@ -12,10 +12,12 @@ class BackupEvent extends Event
 {
     const PRE_BACKUP = 'mabe.event.pre_backup';
     const POST_BACKUP = 'mabe.event.post_backup';
+    const BACKUP_FINISHED = 'mabe.event.backup_finished';
 
     protected $object;
     protected $jobs;
     protected $activeJob;
+    protected $serialize = true;
 
     /**
      * @param mixed $object
@@ -63,5 +65,21 @@ class BackupEvent extends Event
     public function getActiveJob()
     {
         return $this->activeJob;
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getSerialize()
+    {
+        return $this->serialize;
+    }
+
+    /**
+     * @param mixed $serialize
+     */
+    public function setSerialize($serialize)
+    {
+        $this->serialize = $serialize;
     }
 }
