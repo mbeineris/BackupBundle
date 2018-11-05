@@ -110,7 +110,6 @@ class BackupCommand extends ContainerAwareCommand
                 if (in_array($entity, $registeredEntities)) {
 
                     $backupName = $jobName."_".$entityName."_".$currentDate.".json.gz";
-
                     $q = $em->createQuery('select e from '.$bundleName.':'.$entityName.' e');
                     $iterableResult = $q->iterate();
                     $backupJson = '';
@@ -124,6 +123,10 @@ class BackupCommand extends ContainerAwareCommand
                         $event->setObject($object);
                         $event->setActiveJob($jobName);
                         $dispatcher->dispatch(BackupEvent::PRE_BACKUP, $event);
+
+                        if(!$event->getSerialize()) {
+                            continue;
+                        }
 
                         // If groups specified
                         if(!empty($entityOptions['groups'])) {
@@ -154,6 +157,9 @@ class BackupCommand extends ContainerAwareCommand
                             }
                             $json = $serializer->serialize($serializeObject, 'json');
                         }
+
+                        $event = new BackupEvent();
+                        $dispatcher->dispatch(BackupEvent::POST_BACKUP, $event);
 
                         $em->detach($object);
                         $backupJson .= $json;
