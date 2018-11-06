@@ -16,6 +16,9 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 class BackupCommand extends ContainerAwareCommand
 {
+    const MAX_MEMORY = 128;
+    const BULK_SELECT = 700;
+
     protected function configure()
     {
         $this
@@ -72,6 +75,7 @@ class BackupCommand extends ContainerAwareCommand
         $currentDate = $now->format('YmdHis');
         $backupSuccess = array();
         $completedJobs = array();
+        $part = 0;
 
         // If arguments given, check if they are valid
         if (!empty($jobs)) {
@@ -101,6 +105,14 @@ class BackupCommand extends ContainerAwareCommand
                 continue;
             }
 
+            if (!empty($configuredJob['local'])) {
+                $localPath = $configuredJob['local'];
+            }
+
+            if (!empty($configuredJob['gaufrette'])) {
+                $configuredFilesystems = $configuredJob['gaufrette'];
+            }
+
             foreach ($configuredJob['entities'] as $entity => $entityOptions) {
 
                 $entityName = substr($entity, strrpos($entity, "\\") + 1);
@@ -109,72 +121,97 @@ class BackupCommand extends ContainerAwareCommand
 
                 if (in_array($entity, $registeredEntities)) {
 
-                    $backupName = $jobName."_".$entityName."_".$currentDate.".json.gz";
-                    $q = $em->createQuery('select e from '.$bundleName.':'.$entityName.' e');
-                    $iterableResult = $q->iterate();
+                    $backupName = "[".$jobName."][".$entityName."]_".$currentDate.".json.gz";
+                    $count =  $q = $em->createQuery('select count(e.id) from '.$bundleName.':'.$entityName.' e')->getSingleScalarResult();
+                    $timesToQuery = floor($count/self::BULK_SELECT);
+                    //TODO: Remainder select
+                    $remainder = $count % self::BULK_SELECT;
                     $backupJson = '';
-                    foreach ($iterableResult as $row) {
+                    if($timesToQuery > 0) {
 
-                        // Object of the entity
-                        $object = $row[0];
+                        for ($i = 0; $i < $timesToQuery; $i++) {
 
-                        // Dispatch preBackupEvent
-                        $event = new BackupEvent();
-                        $event->setObject($object);
-                        $event->setActiveJob($jobName);
-                        $dispatcher->dispatch(BackupEvent::PRE_BACKUP, $event);
+                            $start = self::BULK_SELECT*$i;
+                            $q = $em->createQuery('select e from '.$bundleName.':'.$entityName.' e');
+                            $q->setFirstResult($start);
+                            $q->setMaxResults(self::BULK_SELECT);
+                            $iterableResult = $q->iterate();
 
-                        if(!$event->getSerialize()) {
-                            continue;
-                        }
+                            foreach ($iterableResult as $row) {
 
-                        // If groups specified
-                        if(!empty($entityOptions['groups'])) {
-                            $json = $serializer->serialize($object, 'json', SerializationContext::create()->setGroups($entityOptions['groups']));
-                        } else {
-                            $serializeObject = new \stdClass();
-                            foreach ($em->getClassMetadata($entity)->getReflectionClass()->getProperties() as $reflectionProperty) {
+                                // Object of the entity
+                                $object = $row[0];
 
-                                $property = $reflectionProperty->name;
+                                // Dispatch preBackupEvent
+                                $event = new BackupEvent();
+                                $event->setObject($object);
+                                $event->setActiveJob($jobName);
+                                $dispatcher->dispatch(BackupEvent::PRE_BACKUP, $event);
 
-                                // If properties specified
-                                if (!empty($configuredProps = $entityOptions['properties'])) {
-                                    if(in_array($property, $configuredProps)){
-                                        if (in_array($property, $entityAssociations) ){
-                                            $serializeObject->$property = array('id' => $object->getId());
+                                if(!$event->getSerialize()) {
+                                    continue;
+                                }
+
+                                // If groups specified
+                                if(!empty($entityOptions['groups'])) {
+                                    $json = $serializer->serialize($object, 'json', SerializationContext::create()->setGroups($entityOptions['groups']));
+                                } else {
+                                    $serializeObject = new \stdClass();
+                                    foreach ($em->getClassMetadata($entity)->getReflectionClass()->getProperties() as $reflectionProperty) {
+
+                                        $property = $reflectionProperty->name;
+                                        // If properties specified
+                                        if (!empty($configuredProps = $entityOptions['properties'])) {
+                                            if(in_array($property, $configuredProps)){
+                                                if (in_array($property, $entityAssociations) ){
+                                                    $serializeObject->$property = array('id' => $object->getId());
+                                                } else {
+                                                    $serializeObject->$property = $object->{'get'.$property}();
+                                                }
+                                            }
                                         } else {
-                                            $serializeObject->$property = $object->{'get'.$property}();
+                                            // If property is association, backup only id
+                                            if (in_array($property, $entityAssociations)){
+                                                $serializeObject->$property = array('id' => $object->getId());
+                                            } else {
+                                                $serializeObject->$property = $object->{'get'.$property}();
+                                            }
                                         }
                                     }
-                                } else {
-                                    // If property is association, backup only id
-                                    if (in_array($property, $entityAssociations)){
-                                        $serializeObject->$property = array('id' => $object->getId());
-                                    } else {
-                                        $serializeObject->$property = $object->{'get'.$property}();
-                                    }
+                                    $json = $serializer->serialize($serializeObject, 'json');
+                                }
+
+                                $event = new BackupEvent();
+                                $dispatcher->dispatch(BackupEvent::POST_BACKUP, $event);
+
+                                $em->detach($object);
+                                $backupJson .= $json;
+                                $progressBar->advance();
+
+                            }
+
+                            if (memory_get_usage(true) / 1000000 > self::MAX_MEMORY && !empty($localPath)) {
+                                $part++;
+                                $this->localBackup($part, $localPath, $backupName, $backupJson);
+                                $backupJson = '';
+                                if (memory_get_usage(true) / 1000000 > self::MAX_MEMORY) {
+                                    $output->writeln('');
+                                    die('Out of memory. Either increase php_memory_limit or change configuration.');
                                 }
                             }
-                            $json = $serializer->serialize($serializeObject, 'json');
+
                         }
 
-                        $event = new BackupEvent();
-                        $dispatcher->dispatch(BackupEvent::POST_BACKUP, $event);
-
-                        $em->detach($object);
-                        $backupJson .= $json;
-                        $progressBar->advance();
-
                     }
-                    $backupJson = gzencode($backupJson);
 
-                    // Handle local case
-                    if (!empty($configuredJob['local'])) {
-                        file_put_contents($configuredJob['local'] . $backupName, $backupJson);
+                    // Handle local backup
+                    if (!empty($localPath)) {
+                        $this->localBackup($part, $localPath, $backupName, $backupJson);
                     }
 
                     // Handle gaufrette case
-                    if (!empty($configuredFilesystems = $configuredJob['gaufrette'])) {
+                    if (!empty($configuredFilesystems)) {
+
                         foreach ($configuredFilesystems as $filesystemName) {
                             try {
                                 $filesystem = $container->get('knp_gaufrette.filesystem_map')->get($filesystemName);
@@ -201,6 +238,7 @@ class BackupCommand extends ContainerAwareCommand
                     $event = new BackupEvent();
                     $event->setJobs($completedJobs);
                     $dispatcher->dispatch(BackupEvent::POST_BACKUP, $event);
+                    $part = 0;
 
                 } else {
                     $progressBar->clear();
@@ -240,5 +278,11 @@ class BackupCommand extends ContainerAwareCommand
         $table->setStyle('borderless');
         $table->render();
         $output->writeln('');
+    }
+
+    public function localBackup($part, $path, $name, $json)
+    {
+        $backupJson = gzencode($json);
+        file_put_contents($path . "[".$part."]".$name, $backupJson);
     }
 }
