@@ -13,9 +13,11 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Mabe\BackupBundle\Manager\BackupManager;
 
 class BackupCommand extends ContainerAwareCommand
 {
+
     protected function configure()
     {
         $this
@@ -44,179 +46,45 @@ class BackupCommand extends ContainerAwareCommand
         $option = $input->getOption('list');
         $list = ($option !== false);
 
-        // Get needed services
-        $container = $this->getContainer();
-        $em = $container->get('doctrine')->getManager();
-        $serializer = SerializerBuilder::create()->build();
-        $dispatcher = $this->getContainer()->get('event_dispatcher');
-
         $output->writeln('Symfony BackupBundle by Marius Beineris and contributors.');
         $output->writeln('');
 
-        // Get configuration
-        $configuredJobs = $container->getParameter('mabe_backup.jobs');
-
-        // List configured jobs
-        if (!empty($list)) {
-            $this->listJobs($output, $configuredJobs);
-            // If no arguments passed, stop command
-            if (empty($jobs)) {
-                return;
-            }
-        }
-
-        // Set helper options and instantiate variables
-        $em->getConnection()->getConfiguration()->setSQLLogger(null);
-        $registeredEntities = $em->getConfiguration()->getMetadataDriverImpl()->getAllClassNames();
-        $now = new \DateTime("now");
-        $currentDate = $now->format('YmdHis');
-        $backupSuccess = array();
-        $completedJobs = array();
+        // Get backup manager
+        $backupManager = $this->getContainer()->get('mabe.backup.manager');
 
         // If arguments given, check if they are valid
         if (!empty($jobs)) {
-            $unknownJobs = array_diff($jobs, array_keys($configuredJobs));
+            $unknownJobs = $backupManager->validateJobs($jobs);
             if (!empty($unknownJobs)) {
                 $output->write('Unknown Job(s): ');
                 $output->writeln(implode(', ', $unknownJobs));
                 $output->writeln('');
                 // Check if list was not displayed
                 if(empty($list)) {
-                    $this->listJobs($output, $configuredJobs);
+                    $this->listJobs($output, $backupManager->getJobs());
                 }
                 return;
             }
         }
 
-        // Initiate progress bar
-        ProgressBar::setFormatDefinition('memory', 'Using %memory% of memory.');
-        $progressBar = new ProgressBar($output);
-        $progressBar->setFormat('memory');
-        $progressBar->start();
-
-        foreach ($configuredJobs as $jobName => $configuredJob) {
-
-            // Skip jobs that were not in given arguments
-            if(!empty($jobs && !in_array($jobName, $jobs))) {
-                continue;
+        // List configured jobs
+        if (!empty($list)) {
+            $this->listJobs($output, $backupManager->getJobs());
+            // If no arguments passed, stop command
+            if (empty($jobs)) {
+                return;
             }
-
-            foreach ($configuredJob['entities'] as $entity => $entityOptions) {
-
-                $entityName = substr($entity, strrpos($entity, "\\") + 1);
-                $bundleName = strtok($entity, "\\");
-                $entityAssociations = $em->getClassMetadata($entity)->getAssociationNames();
-
-                if (in_array($entity, $registeredEntities)) {
-
-                    $backupName = $jobName."_".$entityName."_".$currentDate.".json.gz";
-                    $q = $em->createQuery('select e from '.$bundleName.':'.$entityName.' e');
-                    $iterableResult = $q->iterate();
-                    $backupJson = '';
-                    foreach ($iterableResult as $row) {
-
-                        // Object of the entity
-                        $object = $row[0];
-
-                        // Dispatch preBackupEvent
-                        $event = new BackupEvent();
-                        $event->setObject($object);
-                        $event->setActiveJob($jobName);
-                        $dispatcher->dispatch(BackupEvent::PRE_BACKUP, $event);
-
-                        if(!$event->getSerialize()) {
-                            continue;
-                        }
-
-                        // If groups specified
-                        if(!empty($entityOptions['groups'])) {
-                            $json = $serializer->serialize($object, 'json', SerializationContext::create()->setGroups($entityOptions['groups']));
-                        } else {
-                            $serializeObject = new \stdClass();
-                            foreach ($em->getClassMetadata($entity)->getReflectionClass()->getProperties() as $reflectionProperty) {
-
-                                $property = $reflectionProperty->name;
-
-                                // If properties specified
-                                if (!empty($configuredProps = $entityOptions['properties'])) {
-                                    if(in_array($property, $configuredProps)){
-                                        if (in_array($property, $entityAssociations) ){
-                                            $serializeObject->$property = array('id' => $object->getId());
-                                        } else {
-                                            $serializeObject->$property = $object->{'get'.$property}();
-                                        }
-                                    }
-                                } else {
-                                    // If property is association, backup only id
-                                    if (in_array($property, $entityAssociations)){
-                                        $serializeObject->$property = array('id' => $object->getId());
-                                    } else {
-                                        $serializeObject->$property = $object->{'get'.$property}();
-                                    }
-                                }
-                            }
-                            $json = $serializer->serialize($serializeObject, 'json');
-                        }
-
-                        $event = new BackupEvent();
-                        $dispatcher->dispatch(BackupEvent::POST_BACKUP, $event);
-
-                        $em->detach($object);
-                        $backupJson .= $json;
-                        $progressBar->advance();
-
-                    }
-                    $backupJson = gzencode($backupJson);
-
-                    // Handle local case
-                    if (!empty($configuredJob['local'])) {
-                        file_put_contents($configuredJob['local'] . $backupName, $backupJson);
-                    }
-
-                    // Handle gaufrette case
-                    if (!empty($configuredFilesystems = $configuredJob['gaufrette'])) {
-                        foreach ($configuredFilesystems as $filesystemName) {
-                            try {
-                                $filesystem = $container->get('knp_gaufrette.filesystem_map')->get($filesystemName);
-                            } catch (\Exception $e) {
-                                $progressBar->clear();
-                                $output->writeln($filesystemName. " filesystem for entity ".$entityName." not found.");
-                                $progressBar->display();
-                                break;
-                            }
-
-                            if (!$filesystem->has($backupName)) {
-                                $filesystem->write($entityName . "_" . $backupName, $backupJson);
-                            } else {
-                                $progressBar->clear();
-                                $output->writeln($backupName. " already exists.");
-                                $progressBar->display();
-                            }
-                        }
-                    }
-                    array_push($backupSuccess, $entityName);
-                    array_push($completedJobs, $jobName);
-
-                    // Dispatch postBackup
-                    $event = new BackupEvent();
-                    $event->setJobs($completedJobs);
-                    $dispatcher->dispatch(BackupEvent::POST_BACKUP, $event);
-
-                } else {
-                    $progressBar->clear();
-                    $output->writeln($entityName. " entity not found.");
-                    $progressBar->display();
-                }
-                gc_collect_cycles();
-
-            }
-
         }
+
+        $output->writeln('In progress... (NOTE: Depending on your database size and configuration this may take some time.)');
         sleep(1);
-        $progressBar->finish();
+
+        // Start backup
+        $result = $backupManager->backup($jobs);
+
         $output->writeln('');
-        if (!empty($backupSuccess)) {
-            $output->writeln('Successfully backed entities: '. implode(", ", $backupSuccess));
+        if (!empty($result)) {
+            $output->writeln('Successfully backed up entities: ['. implode(", ", $result).']');
             $output->writeln('');
         } else {
             $output->writeln('All backups has failed.');
