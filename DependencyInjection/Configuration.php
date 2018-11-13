@@ -59,39 +59,40 @@ class Configuration implements ConfigurationInterface
                                     ->end()
                                 ->end()
                             ->end()
-                            ->scalarNode('local')->beforeNormalization()
-                                ->ifString()
-                                    ->then(function ($dir) {
-                                        if (substr($dir, -1) === '/') {
-                                            return $dir;
-                                        } else {
-                                            return $dir.'/';
-                                        }
-                                })->end()
-                            ->end()
-                            ->arrayNode('gaufrette')
-                                ->prototype('scalar')->end()
-                            ->end()
+                            // ->scalarNode('local')->beforeNormalization()
+                            //     ->ifString()
+                            //         ->then(function ($dir) {
+                            //             if (substr($dir, -1) === '/') {
+                            //                 return $dir;
+                            //             } else {
+                            //                 return $dir.'/';
+                            //             }
+                            //     })->end()
+                            // ->end()
+                            // ->arrayNode('gaufrette')
+                            //     ->prototype('scalar')->end()
+                            // ->end()
+                            ->scalarNode('target')->isRequired()->end()
                         ->end()
-                        ->validate()
-                            ->always()
-                            ->then(function ($jobs){
-                                $local = false; $gaufrette = false;
-                                foreach ($jobs as $jobProperty => $jobValue) {
-                                    if($jobProperty === 'local') {
-                                        $local = true;
-                                    }
-                                    if($jobProperty === 'gaufrette' && !empty($jobValue)) {
-                                        $gaufrette = true;
-                                    }
-                                }
-                                if ($local || $gaufrette) {
-                                    return $jobs;
-                                } else {
-                                    throw new InvalidConfigurationException('At least one save location must be specified.');
-                                }
-                            })
-                        ->end()
+                        // ->validate()
+                        //     ->always()
+                        //     ->then(function ($jobs){
+                        //         $local = false; $gaufrette = false;
+                        //         foreach ($jobs as $jobProperty => $jobValue) {
+                        //             if($jobProperty === 'local') {
+                        //                 $local = true;
+                        //             }
+                        //             if($jobProperty === 'gaufrette' && !empty($jobValue)) {
+                        //                 $gaufrette = true;
+                        //             }
+                        //         }
+                        //         if ($local || $gaufrette) {
+                        //             return $jobs;
+                        //         } else {
+                        //             throw new InvalidConfigurationException('At least one save location must be specified.');
+                        //         }
+                        //     })
+                        // ->end()
                     ->end()
                 ->end()
             ->end()
