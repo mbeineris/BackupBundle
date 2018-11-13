@@ -124,12 +124,12 @@ class BackupCommand extends ContainerAwareCommand
         $table = new Table($output);
         $output->writeln('Backup Jobs:');
         $table
-            ->setHeaders(array('#', 'Job Name', 'Entities', 'Target[Service]', 'Local Target'));
+            ->setHeaders(array('#', 'Job Name', 'Entities', 'Target[Service]'));
         $i = 0;
         foreach ($configuredJobs as $jobName => $job) {
             // array("AppBundle\Entity\Test1", "AppBundle\Entity\Test2") -> array("Test1", "Test2")
             $entities = array_map(function ($x){ return substr($x, strrpos($x, "\\") + 1); }, array_keys($job['entities']));
-            $table->addRow(array($i, $jobName, implode(', ', $entities), !empty($job['target'])?$job['target']:'', !empty($job['local'])?$job['local']:''));
+            $table->addRow(array($i, $jobName, implode(', ', $entities), !empty($job['target'])?$job['target']:''));
             $i++;
         }
         $table->setStyle('borderless');
