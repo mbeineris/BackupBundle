@@ -1,4 +1,4 @@
 services:
-    mabe.backup.manager:
-        class: Mabe\BackupBundle\Manager\BackupManager
-        arguments: ["%mabe_backup.jobs%", "@event_dispatcher", "@doctrine.orm.entity_manager"]
+    mabe_backup.manager:
+        class: Mabe\BackupBundle\Util\BackupManager
+        arguments: ["@event_dispatcher", "@doctrine.orm.entity_manager"]
