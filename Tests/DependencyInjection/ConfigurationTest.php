@@ -47,37 +47,19 @@ class ConfigurationTest extends WebTestCase
         $this->getConfigs(array('jobs' => $jobs));
     }
 
-    public function testLocalConfiguration()
-    {
-        $localDir = '/home/username/backups';
-        $configuration = $this->getConfigs(array('jobs' => array(array('local' => $localDir))));
-        $this->assertArrayHasKey('local', $configuration['jobs'][0]);
-        $this->assertEquals($configuration['jobs'][0]['local'], '/home/username/backups/');
-    }
+    // public function testLocalConfiguration()
+    // {
+    //     $localDir = '/home/username/backups';
+    //     $configuration = $this->getConfigs(array('jobs' => array(array('local' => $localDir))));
+    //     $this->assertArrayHasKey('local', $configuration['jobs'][0]);
+    //     $this->assertEquals($configuration['jobs'][0]['local'], '/home/username/backups/');
+    // }
 
     public function testGaufretteConfiguration()
     {
-        $filesystems = array('test1_fs', 'test2_fs');
-        $configuration = $this->getConfigs(array('jobs' => array(array('gaufrette' => $filesystems))));
-        $this->assertArrayHasKey('gaufrette', $configuration['jobs'][0]);
-        $this->assertEquals($filesystems, $configuration['jobs'][0]['gaufrette']);
-    }
-
-    public function testValidSaveLocationConfiguration()
-    {
-        $jobs = array(
-            'job1' => array(
-                'local' => '/project/backup',
-                'gaufrette' => array('backup_fs')
-            ),
-            'job2' => array(
-                'local' => '/project/backup'
-            ),
-            'job3' => array(
-                'gaufrette' => array('backup_fs')
-            ),
-        );
-        $this->getConfigs(array('jobs' => $jobs));
+        $configuration = $this->getConfigs(array('jobs' => array(array('target' => 'app.backup.s3_saver'))));
+        $this->assertArrayHasKey('target', $configuration['jobs'][0]);
+        $this->assertEquals('app.backup.s3_saver', $configuration['jobs'][0]['target']);
     }
 
     public function testInvalidSaveLocation()
