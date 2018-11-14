@@ -2,3 +2,4 @@ services:
     mabe_backup.manager:
         class: Mabe\BackupBundle\Util\BackupManager
         arguments: ["@event_dispatcher", "@doctrine.orm.entity_manager"]
+        public: true
