@@ -3,6 +3,8 @@
 
 This symfony bundle makes json backups from specified entities.
 
+![Alt Text](https://media.giphy.com/media/nqbW208pJENqHvhtaa/giphy.gif)
+
 Requirements
 ============
 - (Optional) Gaufrette bundle: https://github.com/KnpLabs/KnpGaufretteBundle
