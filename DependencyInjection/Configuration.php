@@ -47,6 +47,7 @@ class Configuration implements ConfigurationInterface
                                             if(!empty($entities['properties']) && !empty($entities['groups'])) {
                                                 throw new InvalidConfigurationException('Entity properties and groups cannot be configured at the same time.');
                                             }
+                                            return $entities;
                                         })
                                     ->end()
                                     ->children()
