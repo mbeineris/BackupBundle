@@ -3,7 +3,7 @@
 
 This symfony bundle makes json backups from specified entities.
 
-![Alt Text](https://media.giphy.com/media/nqbW208pJENqHvhtaa/giphy.gif)
+![](https://raw.githubusercontent.com/mbeineris/BackupBundle/master/Demo/demo.gif)
 
 Requirements
 ============
