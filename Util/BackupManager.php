@@ -12,6 +12,7 @@ use Mabe\BackupBundle\Saver\GaufretteSaver;
 class BackupManager
 {
     const BULK_SELECT = 700;
+    const MEMORY_OVERHEAD = 10;
 
     private $eventDispatcher;
     private $entityManager;
@@ -41,6 +42,10 @@ class BackupManager
 
         // Set helper options and instantiate variables
         $maxMemory = ini_get('memory_limit');
+        if ($maxMemory != -1 && is_string($maxMemory)){
+            $maxMemory = rtrim($maxMemory, "M ");
+            $maxMemory -= self::MEMORY_OVERHEAD;
+        }
         $this->entityManager->getConnection()->getConfiguration()->setSQLLogger(null);
         $now = new \DateTime("now");
         $currentDate = $now->format('YmdHis');
