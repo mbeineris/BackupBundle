@@ -49,7 +49,7 @@ class BackupManager
         $this->entityManager->getConnection()->getConfiguration()->setSQLLogger(null);
         $now = new \DateTime("now");
         $currentDate = $now->format('YmdHis');
-        $part = 0;
+        $part = 0; $objectIteration = 0;
 
         foreach ($job['entities'] as $entity => $entityOptions) {
 
@@ -116,30 +116,41 @@ class BackupManager
                                 }
                                 $json = $serializer->serialize($serializeObject, 'json');
                             }
-    
+
+                            // Save file and release memory ..
+                            if (
+                                // Running out of memory
+                                (memory_get_usage(true) / 1000000 > $maxMemory && $maxMemory != -1) 
+                                // Or batches are configured
+                                || (!empty($entityOptions['batch']) && $objectIteration !== 0 && $objectIteration % $entityOptions['batch'] === 0)
+                            ) {
+                                $part++;
+                                $this->save($part, $backupName, $backupJson, $entityName, $saver);
+                                $backupJson = '';
+                                if (memory_get_usage(true) / 1000000 > $maxMemory && $maxMemory != -1) {
+                                    die('Out of memory. Either increase php_memory_limit or change configuration.');
+                                }
+                            }
+
+                            $backupJson .= $json.',';
+
                             $event = new BackupEvent();
                             $this->eventDispatcher->dispatch(BackupEvent::POST_BACKUP, $event);
     
                             $this->entityManager->detach($object);
-                            $backupJson .= $json.',';
-                        }
-                        // In mbs
-                        if (memory_get_usage(true) / 1000000 > $maxMemory && $maxMemory != -1) {
-                            $part++;
-                            $this->save($part, $backupName, $backupJson, $entityName, $saver);
-                            $backupJson = '';
-                            if (memory_get_usage(true) / 1000000 > $maxMemory) {
-                                die('Out of memory. Either increase php_memory_limit or change configuration.');
-                            }
+                            $objectIteration++;
                         }
                     }
                 }
-
                 // Save
-                $this->save($part, $backupName, $backupJson, $entityName, $saver);
+                if ($objectIteration !== $part) {
+                    $this->save($part, $backupName, $backupJson, $entityName, $saver);
+                }
+                
             }
             gc_collect_cycles();
             $part = 0;
+            $objectIteration = 0;
         }
 
         // Dispatch postBackup
