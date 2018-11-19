@@ -57,6 +57,7 @@ class Configuration implements ConfigurationInterface
                                         ->arrayNode('properties')
                                             ->prototype('scalar')->end()
                                         ->end()
+                                        ->scalarNode('batch')->end()
                                     ->end()
                                 ->end()
                             ->end()
