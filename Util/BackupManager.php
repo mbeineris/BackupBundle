@@ -60,7 +60,6 @@ class BackupManager
 
             if (in_array($entity, $registeredEntities)) {
 
-                $backupName = "[".$jobName."][".lcfirst($entityName)."]_".$currentDate.".json.gz";
                 $count =  $q = $this->entityManager->createQuery('select count(e.id) from '.$bundleName.':'.$entityName.' e')->getSingleScalarResult();
                 $timesToQuery = floor($count/self::BULK_SELECT);
                 $backupJson = '';
@@ -124,7 +123,7 @@ class BackupManager
                                 // Or batches are configured
                                 || (!empty($entityOptions['batch']) && $objectIteration !== 0 && $objectIteration % $entityOptions['batch'] === 0)
                             ) {
-                                $this->save(++$part, $backupName, $backupJson, $entityName, $saver);
+                                $this->save(++$part, $jobName, $entityName, $currentDate, $backupJson, $saver);
                                 $backupJson = '';
                                 if (memory_get_usage(true) / 1000000 > $maxMemory && $maxMemory != -1) {
                                     die('Out of memory. Either increase php_memory_limit or change configuration.');
@@ -143,7 +142,7 @@ class BackupManager
                 }
                 // Save
                 if ($objectIteration !== $part) {
-                    $this->save(++$part, $backupName, $backupJson, $entityName, $saver);
+                    $this->save(++$part, $jobName, $entityName, $currentDate, $backupJson, $saver);
                 }
                 
             }
@@ -159,9 +158,9 @@ class BackupManager
         return $jobName;
     }
 
-    private function save($part, $backupName, $backupJson, $entityName, $saver)
+    private function save($part, $jobName, $entityName, $currentDate, $backupJson, $saver)
     {
-        $filename = $part>0 ? "[".$part."]".$backupName :"" .$backupName;
+        $filename = "[".$jobName."][".lcfirst($entityName)."]_".$currentDate."[".$part."]".".json.gz";
         // Make a valid compressed json
         $backupJson = gzencode('{"'.$entityName.'":['.rtrim($backupJson, ', ').']}');
         // Save with service
